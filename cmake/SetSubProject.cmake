@@ -22,6 +22,14 @@ else()
 endif()
 # end /* CUB include directories */
 
+# begin /* MPI include directories */
+if (MPI_INCLUDE_PATH)
+  include_directories(${MPI_INCLUDE_PATH})
+else()
+  message(SEND_ERROR "MPI include directory not set.")
+endif()
+# end /* MPI include directories */
+
 # begin /* Add CUDA executables */
 CUDA_ADD_EXECUTABLE(${PROJECT_NAME}
   test_${PROJECT_NAME}.cu
@@ -35,7 +43,9 @@ CUDA_ADD_EXECUTABLE(${PROJECT_NAME}
 
 # begin /* Link Metis and Boost */
 target_link_libraries(${PROJECT_NAME} ${Boost_LIBRARIES})
+target_link_libraries(${PROJECT_NAME} ${MPI_LIBRARIES})
 target_link_libraries(${PROJECT_NAME} ${METIS_LIBRARY})
+target_link_libraries(${PROJECT_NAME} ${PARMETIS_LIBRARY})
 # end /* Link Metis and Boost */
 
 # begin /* Link OpenMP (libomp) for OSX */
