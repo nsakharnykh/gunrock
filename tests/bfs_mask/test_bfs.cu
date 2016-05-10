@@ -5,6 +5,8 @@
 // in the root directory of this source distribution.
 // ----------------------------------------------------------------
 
+// Copyright (c) 2016, NVIDIA CORPORATION. All rights reserved.
+
 /**
  * @file
  * test_bfs.cu
