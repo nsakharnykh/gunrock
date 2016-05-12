@@ -155,6 +155,40 @@ public:
         // info["userinfo"]
     }  // end Info()
 
+    void InitBase2(std::string algorithm_name)
+    {
+        num_gpus = 1;
+        int gpu_idx;
+        util::GRError(cudaGetDevice(&gpu_idx),
+                "cudaGetDevice failed", __FILE__, __LINE__);
+        std::vector<int> temp_devices;
+        temp_devices.push_back(gpu_idx);
+
+        cudaStream_t*     streams_ = new cudaStream_t[num_gpus * num_gpus * 2];
+        mgpu::ContextPtr* context_ = new mgpu::ContextPtr[num_gpus * num_gpus];
+
+        for (int gpu = 0; gpu < num_gpus; gpu++)
+        {
+            util::SetDevice(temp_devices[gpu]);
+            for (int i = 0; i < num_gpus * 2; i++)
+            {
+                int _i = gpu * num_gpus * 2 + i;
+                util::GRError(cudaStreamCreate(&streams_[_i]),
+                        "cudaStreamCreate failed.", __FILE__, __LINE__);
+                if (i < num_gpus)
+                {
+                    context_[gpu * num_gpus + i] =
+                        mgpu::CreateCudaDeviceAttachStream(
+                                temp_devices[gpu], streams_[_i]);
+                }
+            }
+        }
+
+        context = (mgpu::ContextPtr*)context_;
+        streams = (cudaStream_t*)streams_;
+        ///////////////////////////////////////////////////////////////////////
+    }
+
     /**
      * @brief Initialization process for Info.
      *

@@ -171,6 +171,54 @@ struct GraphSlice
         return retval;
     } // end ~GraphSlice()
 
+    cudaError_t Init(
+        bool                       stream_from_host,
+        int                        num_gpus,
+        SizeT                      *row_offsets,
+        VertexId                   *col_indices,
+        SizeT                      num_nodes,
+        VertexId                   num_edges,
+        int*                       partition_table,
+        VertexId*                  convertion_table,
+        VertexId*                  original_vertex,
+        SizeT*                     in_counter,
+        SizeT*                     out_offset,
+        SizeT*                     out_counter,
+        SizeT*                     backward_offsets   = NULL,
+        int*                       backward_partition = NULL,
+        VertexId*                  backward_convertion = NULL)
+    {
+        cudaError_t retval     = cudaSuccess;
+
+        // Set local variables / array pointers
+        this->num_gpus         = num_gpus;
+        this->nodes            = num_nodes;
+        this->edges            = num_edges;
+        this -> inverse_edges = 0;
+        if (partition_table  != NULL) this->partition_table    .SetPointer(partition_table      , nodes     );
+        if (convertion_table != NULL) this->convertion_table   .SetPointer(convertion_table     , nodes     );
+        if (original_vertex  != NULL) this->original_vertex    .SetPointer(original_vertex      , nodes     );
+        if (in_counter       != NULL) this->in_counter         .SetPointer(in_counter           , num_gpus + 1);
+        if (out_offset       != NULL) this->out_offset         .SetPointer(out_offset           , num_gpus + 1);
+        if (out_counter      != NULL) this->out_counter        .SetPointer(out_counter          , num_gpus + 1);
+        this->row_offsets        .SetPointer(row_offsets   , nodes + 1, util::DEVICE);
+        this->column_indices     .SetPointer(col_indices, edges, util::DEVICE);
+
+        // Set device using slice index
+        if (retval = util::SetDevice(index)) return retval;
+
+        // Allocate out degrees for each node
+        if (retval = this->out_degrees   .Allocate(nodes     , util::DEVICE)) return retval;
+        // count number of out-going degrees for each node
+        util::MemsetMadVectorKernel <<< 128, 128>>>(
+            this->out_degrees.GetPointer(util::DEVICE),
+            this->row_offsets.GetPointer(util::DEVICE),
+            this->row_offsets.GetPointer(util::DEVICE) + 1,
+            (SizeT)-1, nodes);
+
+        return retval;
+    } // End GraphSlice Init()
+
     /**
       * @brief Initialize graph slice
       *
@@ -746,7 +794,7 @@ struct DataSliceBase
         if (retval = org_block_idx .Release()) return retval;
         if (retval = org_thread_idx.Release()) return retval;
         return retval;
-    } // end Release()
+    } // end Release() 
 
     /**
      * @brief Initiate DataSliceBase
@@ -771,6 +819,8 @@ struct DataSliceBase
               *graph               ,
         SizeT *num_in_nodes        ,
         SizeT *num_out_nodes       ,
+        SizeT  num_nodes = 0,
+        VertexId num_edges = 0,
         float  in_sizing = 1.0     ,
         bool   skip_makeout_selection = false)
     {
@@ -779,8 +829,13 @@ struct DataSliceBase
         this->num_gpus             = num_gpus;
         this->gpu_idx              = gpu_idx;
         this->use_double_buffer    = use_double_buffer;
-        this->nodes                = graph->nodes;
-        this->edges                = graph->edges;
+        if (graph == NULL) {
+            this->nodes = num_nodes;
+            this->edges = num_edges;
+        } else {
+            this->nodes                = graph->nodes;
+            this->edges                = graph->edges;
+        }
         //this->num_vertex_associate = num_vertex_associate;
         //this->num_value__associate = num_value__associate;
 
@@ -1067,7 +1122,7 @@ struct DataSliceBase
         //}
 
         return retval;
-    } // end Init(..)
+    } // end DataSliceBase Init(..)
 
     /**
      * @brief Performs reset work needed for DataSliceBase. Must be called prior to each search
@@ -1583,6 +1638,58 @@ struct ProblemBase
         {
             return convertion_tables[0][vertex];
         }
+    }
+
+    cudaError_t Init(
+        bool        stream_from_host,
+        SizeT       *row_offsets,
+        VertexId    *col_indices,
+        SizeT       num_nodes,
+        VertexId    num_edges,
+        int         *gpu_idx          = NULL,
+        std::string partition_method  = "random",
+        float       queue_sizing      = 2.0,
+        float       partition_factor  = -1,
+        int         partition_seed    = -1)
+    {
+        cudaError_t retval      = cudaSuccess;
+        this->nodes             = num_nodes;
+        this->edges             = num_edges;
+        this->num_gpus          = 1;
+        this->gpu_idx           = new int [1];
+        if (gpu_idx == NULL)
+        {
+            if (retval = util::GRError(cudaGetDevice(&(this->gpu_idx[0])),
+                "ProblemBase cudaGetDevice failed", __FILE__, __LINE__)) return retval;
+        }
+        else
+            this->gpu_idx[0] = gpu_idx[0];
+
+        graph_slices = new GraphSlice<VertexId, SizeT, Value>*[num_gpus];
+        //graph->DisplayGraph("org_graph",graph->nodes);
+
+            graph_slices[0] = new GraphSlice<VertexId, SizeT, Value>(this->gpu_idx[0]);
+            {
+                retval = graph_slices[0]->Init(
+                    stream_from_host,
+                    num_gpus,
+                    row_offsets,
+                    col_indices,
+                    num_nodes,
+                    num_edges,
+                    NULL,
+                    NULL,
+                    NULL,
+                    NULL,
+                    NULL,
+                    NULL,
+                    NULL,
+                    NULL,
+                    NULL);
+            }
+            if (retval) return retval;
+
+        return retval;
     }
 
     /**

@@ -89,7 +89,8 @@ struct BFSFunctor {
         //atomicAdd(d_data_slice -> output_counter + output_pos, 1);
         //atomicAdd(d_data_slice -> edge_marker + edge_id, 1);
         //if (result) d_data_slice -> vertex_markers[label&0x1][d_id] = 1;
-        return result;
+        return (d_data_slice->edge_masks[edge_id]);
+        //return result;
     }
 
     /**

@@ -120,7 +120,6 @@ protected:
         work_progress     .SetName("work_progress"     );
         enactor_stats     .SetName("enactor_stats"     );
         frontier_attribute.SetName("frontier_attribute");
-        
         if (cuda_props        .Init(
             num_gpus         , util::HOST, true, 
             cudaHostAllocMapped | cudaHostAllocPortable)) 

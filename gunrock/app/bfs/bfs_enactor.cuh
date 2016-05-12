@@ -971,7 +971,6 @@ struct BFSIteration : public IterationBase <
             //    data_slice -> labels.GetPointer(util::DEVICE),
             //    (Value)(enactor_stats -> iteration));
         }
-
                
         //util::MemsetKernel<<<256, 256, 0, stream>>>(
         //    data_slice -> output_counter.GetPointer(util::DEVICE),
@@ -1042,7 +1041,6 @@ struct BFSIteration : public IterationBase <
                     work_progress  -> template GetQueueLengthPointer<unsigned int>(
                         frontier_attribute -> queue_index), stream);
             }
-
             /*if (enactor_stats->retval = work_progress -> GetQueueLength(
                 frontier_attribute->queue_index,
                 frontier_attribute->queue_length,
@@ -1836,6 +1834,7 @@ public:
         this->problem = problem;
         thread_slices = new ThreadSlice [this->num_gpus];
         thread_Ids    = new CUTThread   [this->num_gpus];
+
 
         for (int gpu=0;gpu<this->num_gpus;gpu++)
         {
